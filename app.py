@@ -123,15 +123,26 @@ if uploaded is not None:
                 def_cols.append(c)
         dedup_col = st.selectbox("Clave para eliminar duplicados", def_cols if def_cols else list(df.columns), index=0 if def_cols else 0)
 
-    # Filtrar por rango
+    # Filtrar por rango (cierre exacto por meses completos)
     filtered, dt_series = filter_range(df, date_col, start, end, tz_name)
-
-    # Insertar columnas de auditoría al inicio
+    
+    # Guardarraíl: limitar estrictamente a meses permitidos (evita que se "cuelen" fechas del mes siguiente por TZ)
+    if period_mode == "Mes único":
+        allowed_months = {start.strftime("%Y-%m")}
+    else:
+        months_count = 2 if "2" in period_mode else 3
+        allowed_months = {(start + relativedelta(months=i)).strftime("%Y-%m") for i in range(months_count)}
+    
+    month_str = dt_series.dt.strftime("%Y-%m")
+    filtered = filtered.loc[filtered.index.intersection(month_str[month_str.isin(allowed_months)].index)].copy()
+    
+    # Insertar columnas de auditoría al inicio (usando fecha local parseada)
     if not filtered.empty:
         parsed_col = f"{date_col} (parsed)"
         month_col = "Mes (YYYY-MM)"
-        filtered.insert(0, month_col, dt_series.loc[filtered.index].dt.strftime("%Y-%m"))
+        filtered.insert(0, month_col, month_str.loc[filtered.index])
         filtered.insert(0, parsed_col, dt_series.loc[filtered.index].dt.strftime("%Y-%m-%d %H:%M:%S %Z"))
+
  
     # Añadir columnas extra solicitadas (si no existen)
     for extra in ["Campaña", "Campaña HS", "Negocio Activo"]:
@@ -153,9 +164,9 @@ if uploaded is not None:
     prefer = [
         "ID de registro - Contact","Nombre","Apellidos","Correo","Número de teléfono",
         "ID de registro - Company","Nombre de la empresa","Ciudad","País/región","Sector",
-        "Campaña","Campaña HS","Negocio Activo",
-        date_col,"Mes (YYYY-MM)"
+        parsed_col, "Mes (YYYY-MM)"
     ]
+
 
     for p in prefer:
         if p in filtered.columns and p not in default_export:
