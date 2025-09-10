@@ -140,24 +140,26 @@ if uploaded is not None:
                 def_cols.append(c)
         dedup_col = st.selectbox("Clave para eliminar duplicados", def_cols if def_cols else list(df.columns), index=0 if def_cols else 0)
 
-    # Filtrar por rango (cierre exacto por meses completos)
-    filtered, dt_series = filter_range(df, date_col, start, end, tz_name)
-    # Diagnóstico preliminar
-    total_raw = len(df)
-    parsed_ok = dt_series.notna().sum()
-    in_range_mask = (dt_series >= start) & (dt_series < end)
-    in_range_count = in_range_mask.sum()
-
+    # Parse + filtro POR MES (robusto; evita bordes por hora/TZ)
+    dt_series = parse_datetime_col(df[date_col], tz_name)
+    month_str = dt_series.dt.strftime("%Y-%m")
     
-    # Guardarraíl: limitar estrictamente a meses permitidos (evita que se "cuelen" fechas del mes siguiente por TZ)
     if period_mode == "Mes único":
         allowed_months = {start.strftime("%Y-%m")}
     else:
         months_count = 2 if "2" in period_mode else 3
         allowed_months = {(start + relativedelta(months=i)).strftime("%Y-%m") for i in range(months_count)}
     
-    month_str = dt_series.dt.strftime("%Y-%m")
-    filtered = filtered.loc[filtered.index.intersection(month_str[month_str.isin(allowed_months)].index)].copy()
+    mask_month = month_str.isin(allowed_months)
+    filtered = df.loc[mask_month].copy()
+    
+    # Diagnóstico
+    total_raw = len(df)
+    parsed_ok = dt_series.notna().sum()
+    month_in_allowed = mask_month.sum()
+
+
+
     
     # Insertar columnas de auditoría al inicio (usando fecha local parseada)
     if not filtered.empty:
@@ -185,8 +187,10 @@ if uploaded is not None:
     st.metric("Total filtrados", total, help=f"Periodo: {periodo_text}")
 
     dedup_removed = len(filtered_before_dedup) - len(filtered)
-    st.caption(f"Diag: total={total_raw} | fechas_parseadas={parsed_ok} | en_rango={in_range_count} | "
-               f"después_guardarraíl={len(filtered_before_dedup)} | quitados_por_dedup={dedup_removed}")
+    st.caption(
+        f"Diag: total={total_raw} | fechas_parseadas={parsed_ok} | en_meses={month_in_allowed} | "
+        f"después_guardarraíl={len(filtered)} | quitados_por_dedup={dedup_removed if dedup_enabled else 0}"
+    )
 
 
     # Selección de columnas a exportar
