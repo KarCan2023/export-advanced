@@ -162,22 +162,38 @@ if uploaded is not None:
     with st.expander("Muestra del resultado (hasta 100 filas)"):
         st.dataframe(out.head(100), use_container_width=True)
 
-    # Botones de descarga
-    if period_mode == "Mes único":
-        fname_base = f"avanzados_{label_start}"
-    else:
-        fname_base = f"avanzados_{label_start}_a_{label_end}"
+# Botones de descarga (usa el nombre del archivo subido + periodo)
+base_name = os.path.splitext(uploaded.name)[0]
 
-    buf_xlsx = io.BytesIO()
-    with pd.ExcelWriter(buf_xlsx, engine="openpyxl") as writer:
-        out.to_excel(writer, index=False)
-    st.download_button("⬇️ Descargar **XLSX**", data=buf_xlsx.getvalue(),
-                       file_name=f"{fname_base}.xlsx",
-                       mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+# Sufijo según periodo
+if period_mode == "Mes único":
+    suffix = f"_{label_start}"                  # ej: _2025-08
+else:
+    suffix = f"_{label_start}_a_{label_end}"    # ej: _2025-07_a_2025-08
 
-    csv_bytes = out.to_csv(index=False).encode("utf-8-sig")
-    st.download_button("⬇️ Descargar **CSV (UTF-8)**", data=csv_bytes,
-                       file_name=f"{fname_base}.csv", mime="text/csv")
+file_xlsx = f"{base_name}{suffix}.xlsx"
+file_csv  = f"{base_name}{suffix}.csv"
+
+# XLSX
+buf_xlsx = io.BytesIO()
+with pd.ExcelWriter(buf_xlsx, engine="openpyxl") as writer:
+    out.to_excel(writer, index=False)
+st.download_button(
+    "⬇️ Descargar **XLSX**",
+    data=buf_xlsx.getvalue(),
+    file_name=file_xlsx,
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)
+
+# CSV
+csv_bytes = out.to_csv(index=False).encode("utf-8-sig")
+st.download_button(
+    "⬇️ Descargar **CSV (UTF-8)**",
+    data=csv_bytes,
+    file_name=file_csv,
+    mime="text/csv"
+)
+
 
     info_text = "Se filtran fechas desde **el 1** hasta antes del **1 del mes siguiente** del periodo seleccionado."
     if period_mode != "Mes único":
