@@ -132,6 +132,11 @@ if uploaded is not None:
         month_col = "Mes (YYYY-MM)"
         filtered.insert(0, month_col, dt_series.loc[filtered.index].dt.strftime("%Y-%m"))
         filtered.insert(0, parsed_col, dt_series.loc[filtered.index].dt.strftime("%Y-%m-%d %H:%M:%S %Z"))
+ 
+    # Añadir columnas extra solicitadas (si no existen)
+    for extra in ["Campaña", "Campaña HS", "Negocio Activo"]:
+        if extra not in filtered.columns:
+            filtered[extra] = ""
 
     # Deduplicar conservando el más reciente (opcional)
     if dedup_enabled and not filtered.empty and dedup_col in filtered.columns:
@@ -148,8 +153,10 @@ if uploaded is not None:
     prefer = [
         "ID de registro - Contact","Nombre","Apellidos","Correo","Número de teléfono",
         "ID de registro - Company","Nombre de la empresa","Ciudad","País/región","Sector",
+        "Campaña","Campaña HS","Negocio Activo",
         date_col,"Mes (YYYY-MM)"
     ]
+
     for p in prefer:
         if p in filtered.columns and p not in default_export:
             default_export.append(p)
