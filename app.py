@@ -38,10 +38,25 @@ def excel_serial_to_datetime(series: pd.Series) -> pd.Series:
 
 def parse_datetime_col(series: pd.Series, tz_name: str) -> pd.Series:
     s = series.copy()
+
+    # 1) seriales de Excel si dtype es numérico
     if pd.api.types.is_numeric_dtype(s):
         dt = excel_serial_to_datetime(s)
+
     else:
-        dt = pd.to_datetime(s, errors="coerce", dayfirst=True, infer_datetime_format=True)
+        # 2) si es texto, intenta detectar "números como texto" (seriales Excel)
+        if pd.api.types.is_string_dtype(s):
+            s_str = s.astype(str).str.strip()
+            # num_like = números válidos; si mayoría lo son, tratamos como serial Excel
+            num_like = pd.to_numeric(s_str, errors="coerce")
+            if num_like.notna().mean() >= 0.6:
+                dt = excel_serial_to_datetime(num_like)
+            else:
+                dt = pd.to_datetime(s_str, errors="coerce", dayfirst=True, infer_datetime_format=True)
+        else:
+            dt = pd.to_datetime(s.astype(str), errors="coerce", dayfirst=True, infer_datetime_format=True)
+
+    # 3) Localizar/convertir a la zona horaria
     tz = pytz.timezone(tz_name)
     if hasattr(dt, "dt"):
         try:
@@ -53,6 +68,7 @@ def parse_datetime_col(series: pd.Series, tz_name: str) -> pd.Series:
             dt = pd.to_datetime(s.astype(str), errors="coerce", dayfirst=True)
             dt = dt.dt.tz_localize(tz, nonexistent="shift_forward", ambiguous="NaT")
     return dt
+
 
 def filter_range(df: pd.DataFrame, date_col: str, start, end, tz_name: str):
     dt = parse_datetime_col(df[date_col], tz_name)
@@ -90,7 +106,8 @@ if uploaded is not None:
     # Cargar dataframe
     try:
         if uploaded.name.lower().endswith(".xlsx"):
-            df = pd.read_excel(uploaded, dtype=str, engine="openpyxl")
+            df = pd.read_excel(uploaded, engine="openpyxl")  # deja que pandas infiera fechas/num
+
         else:
             df = pd.read_csv(uploaded, dtype=str, encoding="utf-8")
     except Exception as e:
@@ -125,6 +142,12 @@ if uploaded is not None:
 
     # Filtrar por rango (cierre exacto por meses completos)
     filtered, dt_series = filter_range(df, date_col, start, end, tz_name)
+    # Diagnóstico preliminar
+    total_raw = len(df)
+    parsed_ok = dt_series.notna().sum()
+    in_range_mask = (dt_series >= start) & (dt_series < end)
+    in_range_count = in_range_mask.sum()
+
     
     # Guardarraíl: limitar estrictamente a meses permitidos (evita que se "cuelen" fechas del mes siguiente por TZ)
     if period_mode == "Mes único":
@@ -148,6 +171,8 @@ if uploaded is not None:
     for extra in ["Campaña", "Campaña HS", "Negocio Activo"]:
         if extra not in filtered.columns:
             filtered[extra] = ""
+    
+    filtered_before_dedup = filtered.copy()
 
     # Deduplicar conservando el más reciente (opcional)
     if dedup_enabled and not filtered.empty and dedup_col in filtered.columns:
@@ -158,6 +183,11 @@ if uploaded is not None:
     label_end = (end - relativedelta(days=1)).strftime("%Y-%m")
     periodo_text = f"{label_start}" if period_mode == "Mes único" else f"{label_start} a {label_end}"
     st.metric("Total filtrados", total, help=f"Periodo: {periodo_text}")
+
+    dedup_removed = len(filtered_before_dedup) - len(filtered)
+    st.caption(f"Diag: total={total_raw} | fechas_parseadas={parsed_ok} | en_rango={in_range_count} | "
+               f"después_guardarraíl={len(filtered_before_dedup)} | quitados_por_dedup={dedup_removed}")
+
 
     # Selección de columnas a exportar
     default_export = []
