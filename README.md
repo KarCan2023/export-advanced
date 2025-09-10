@@ -29,7 +29,7 @@ Pequeña herramienta para **cargar un export de HubSpot** y obtener **solo los c
    - **Últimos 2 meses** (meses completos, sin incluir el mes en curso).
    - **Últimos 3 meses** (meses completos, sin incluir el mes en curso).
 4. El sistema **filtra** las filas cuya fecha cae dentro del periodo seleccionado.
-5. **Quita duplicados** por la clave que elijas (recomendado: *ID de registro - Contact* o *Correo*).
+5. *(Opcional)* **Quitar duplicados**: activa la casilla y elige la clave (recomendado: *ID de registro - Contact* o *Correo*).
 6. **Eliges** las columnas a exportar.
 7. **Descargas** el resultado en **XLSX** o **CSV**.
 

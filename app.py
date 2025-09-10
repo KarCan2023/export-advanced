@@ -109,15 +109,18 @@ if uploaded is not None:
 
     date_col = st.selectbox("Columna de fecha para **Avanzados**", candidates, index=0)
 
-    # Clave para deduplicar
-    def_cols = []
-    for c in df.columns:
-        n = normalize(c)
-        if ("id" in n and "contact" in n) or ("id de registro - contact" in n):
-            def_cols.append(c)
-        if "correo" in n or "email" in n:
-            def_cols.append(c)
-    dedup_col = st.selectbox("Eliminar duplicados por", def_cols if def_cols else list(df.columns), index=0 if def_cols else 0)
+    # Opción de eliminar duplicados
+    dedup_enabled = st.checkbox("Eliminar duplicados", value=True, help="Si está activo, se eliminarán filas duplicadas por la clave elegida.")
+    dedup_col = None
+    if dedup_enabled:
+        def_cols = []
+        for c in df.columns:
+            n = normalize(c)
+            if ("id" in n and "contact" in n) or ("id de registro - contact" in n):
+                def_cols.append(c)
+            if "correo" in n or "email" in n:
+                def_cols.append(c)
+        dedup_col = st.selectbox("Clave para eliminar duplicados", def_cols if def_cols else list(df.columns), index=0 if def_cols else 0)
 
     # Filtrar por rango
     filtered, dt_series = filter_range(df, date_col, start, end, tz_name)
@@ -129,8 +132,8 @@ if uploaded is not None:
         filtered.insert(0, month_col, dt_series.loc[filtered.index].dt.strftime("%Y-%m"))
         filtered.insert(0, parsed_col, dt_series.loc[filtered.index].dt.strftime("%Y-%m-%d %H:%M:%S %Z"))
 
-    # Deduplicar conservando el más reciente
-    if not filtered.empty and dedup_col in filtered.columns:
+    # Deduplicar conservando el más reciente (opcional)
+    if dedup_enabled and not filtered.empty and dedup_col in filtered.columns:
         filtered = filtered.sort_values(by=filtered.columns[0], ascending=False).drop_duplicates(subset=[dedup_col])
 
     total = len(filtered)
