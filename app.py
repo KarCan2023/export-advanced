@@ -197,7 +197,7 @@ if uploaded is not None:
     default_export = []
     prefer = [
         "ID de registro - Contact","Nombre","Apellidos","Correo","Número de teléfono",
-        "ID de registro - Company","Nombre de la empresa","Ciudad","País/región","Sector",
+        "Negocio Activo","Campaña","Campaña HS","País/región","Atribución MX emp 0%",
         parsed_col, "Mes (YYYY-MM)"
     ]
 
